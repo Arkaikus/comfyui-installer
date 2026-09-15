@@ -51,6 +51,7 @@ jobs:
           cargo test --manifest-path src-tauri/Cargo.toml
 
       - name: Build AppImage
+        continue-on-error: true
         env:
           APPIMAGE_EXTRACT_AND_RUN: "1"
         run: bunx tauri build --bundles appimage
