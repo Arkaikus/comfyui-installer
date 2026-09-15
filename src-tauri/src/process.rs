@@ -30,7 +30,7 @@ pub async fn start(app: &AppHandle, runtime: &Runtime, saved: &SavedState) -> Re
         return Err(Error::msg("ComfyUI is not installed yet"));
     }
     if crate::probe::port_open(saved.port) {
-        log::emit(app, "info", format!("already running on :{}", saved.port));
+        log::emit(app, "exec", "info", format!("already running on :{}", saved.port));
         return Ok(());
     }
 
@@ -62,6 +62,7 @@ pub async fn start(app: &AppHandle, runtime: &Runtime, saved: &SavedState) -> Re
 
     log::emit(
         app,
+        "exec",
         "info",
         format!("started pid {pid} → http://127.0.0.1:{}", saved.port),
     );
@@ -69,7 +70,7 @@ pub async fn start(app: &AppHandle, runtime: &Runtime, saved: &SavedState) -> Re
     let deadline = tokio::time::Instant::now() + Duration::from_secs(120);
     while tokio::time::Instant::now() < deadline {
         if crate::probe::port_open(saved.port) {
-            log::emit(app, "info", "ComfyUI is up");
+            log::emit(app, "exec", "info", "ComfyUI is up");
             return Ok(());
         }
         if let Some(child) = runtime.child.lock().await.as_mut() {
@@ -88,10 +89,10 @@ pub async fn stop(app: &AppHandle, runtime: &Runtime, saved: &SavedState) -> Res
     if let Some(mut child) = slot.take() {
         let _ = child.start_kill();
         let _ = child.wait().await;
-        log::emit(app, "info", "stopped");
+        log::emit(app, "exec", "info", "stopped");
     } else if let Some(pid) = read_pid(dir) {
         let _ = Command::new("kill").arg("-TERM").arg(pid.to_string()).status().await;
-        log::emit(app, "info", format!("sent SIGTERM to {pid}"));
+        log::emit(app, "exec", "info", format!("sent SIGTERM to {pid}"));
     }
     let _ = std::fs::remove_file(dir.join("comfyui.pid"));
     if crate::probe::port_open(saved.port) {
@@ -133,7 +134,7 @@ where
         let mut lines = BufReader::new(pipe).lines();
         while let Ok(Some(line)) = lines.next_line().await {
             if !line.is_empty() {
-                log::emit(app.as_ref(), level, line);
+                log::emit(app.as_ref(), "exec", level, line);
             }
         }
     });

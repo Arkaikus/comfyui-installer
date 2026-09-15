@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
-import { Home } from '@/components/Home';
-import { Setup } from '@/components/Setup';
+import { ComfyView } from '@/components/ComfyView';
+import { SettingsOverlay } from '@/components/SettingsOverlay';
+import { Welcome } from '@/components/Welcome';
 import {
   status as fetchStatus,
   installComfy,
@@ -10,7 +11,7 @@ import {
   stopComfy,
 } from '@/lib/api';
 import { initLogListener, pushLog } from '@/lib/log';
-import type { InstallRequest, Status } from '@/types';
+import type { Status } from '@/types';
 
 initLogListener();
 
@@ -18,6 +19,8 @@ export function App() {
   const [status, setStatus] = useState<Status | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [view, setView] = useState<'welcome' | 'comfy'>('welcome');
+  const [settingsOpen, setSettingsOpen] = useState(false);
 
   const refresh = useCallback(async () => {
     const next = await fetchStatus();
@@ -29,9 +32,9 @@ export function App() {
     refresh().catch((err) => setError(String(err)));
   }, [refresh]);
 
-  const wrap = async (fn: () => Promise<Status | undefined>) => {
+  const wrap = async (fn: () => Promise<Status | undefined>, opts?: { silent?: boolean }) => {
     setBusy(true);
-    setError(null);
+    if (!opts?.silent) setError(null);
     try {
       const next = await fn();
       if (next) setStatus(next);
@@ -53,29 +56,49 @@ export function App() {
     );
   }
 
-  if (!status.installReady) {
+  if (view === 'comfy') {
     return (
-      <Setup
-        status={status}
-        busy={busy}
-        onInstall={(req: InstallRequest) => wrap(() => installComfy(req))}
-      />
+      <div className="relative h-full">
+        <ComfyView
+          status={status}
+          onBack={() => setView('welcome')}
+          onOpenSettings={() => setSettingsOpen(true)}
+        />
+        {settingsOpen ? (
+          <SettingsOverlay
+            status={status}
+            saving={busy}
+            onSaveKey={(key) =>
+              wrap(
+                () =>
+                  saveSettings({
+                    installDir: status.installDir,
+                    openrouterApiKey: key,
+                  }),
+                { silent: true },
+              ).then(() => setSettingsOpen(false))
+            }
+            onClose={() => setSettingsOpen(false)}
+          />
+        ) : null}
+      </div>
     );
   }
 
   return (
-    <>
-      {error ? <p className="px-5 pt-3 text-sm text-destructive">{error}</p> : null}
-      <Home
+    <div className="relative h-full">
+      <Welcome
         status={status}
         busy={busy}
-        onStart={() => wrap(() => startComfy())}
-        onStop={() => wrap(() => stopComfy())}
-        onOpen={() =>
-          wrap(async () => {
-            await openUi();
-            return undefined;
-          })
+        onInstall={() =>
+          wrap(() =>
+            installComfy({
+              installDir: status.installDir,
+              mode: status.existing ? 'repair' : 'fresh',
+              cpu: false,
+              openrouterApiKey: '',
+            }),
+          )
         }
         onRepair={() =>
           wrap(() =>
@@ -87,15 +110,49 @@ export function App() {
             }),
           )
         }
-        onSaveKey={(openrouterApiKey) =>
-          wrap(() =>
-            saveSettings({
-              installDir: status.installDir,
-              openrouterApiKey,
-            }),
-          )
-        }
+        onStart={async () => {
+          try {
+            if (status.running) {
+              await wrap(() => stopComfy());
+            } else {
+              await wrap(() => startComfy());
+              setView('comfy');
+            }
+          } catch {
+            // wrap surfaced the error
+          }
+        }}
       />
-    </>
+      {!busy && status.installReady && !status.running ? (
+        <button
+          className="absolute right-3 bottom-3 rounded-lg border border-border bg-card/80 px-3 py-1.5 text-xs text-muted-foreground backdrop-blur hover:bg-muted"
+          onClick={() => void openUi()}
+        >
+          Open in browser
+        </button>
+      ) : null}
+      {error && !busy ? (
+        <p className="absolute bottom-3 left-3 max-w-[70%] truncate text-xs text-destructive">
+          {error}
+        </p>
+      ) : null}
+      {settingsOpen ? (
+        <SettingsOverlay
+          status={status}
+          saving={busy}
+          onSaveKey={(key) =>
+            wrap(
+              () =>
+                saveSettings({
+                  installDir: status.installDir,
+                  openrouterApiKey: key,
+                }),
+              { silent: true },
+            ).then(() => setSettingsOpen(false))
+          }
+          onClose={() => setSettingsOpen(false)}
+        />
+      ) : null}
+    </div>
   );
 }

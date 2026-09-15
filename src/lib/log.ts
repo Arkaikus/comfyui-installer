@@ -1,10 +1,12 @@
 import { listen } from '@tauri-apps/api/event';
+import type { LogScope } from '@/types';
 
 export type LogLevel = 'info' | 'warn' | 'err';
 
 export interface LogEntry {
   ts: number;
   level: LogLevel;
+  scope: LogScope;
   message: string;
 }
 
@@ -22,8 +24,8 @@ export function drainLogs(): LogEntry[] {
   return [...buffer];
 }
 
-export function pushLog(level: LogLevel, message: string): void {
-  const entry: LogEntry = { ts: Date.now(), level, message };
+export function pushLog(level: LogLevel, message: string, scope: LogScope = 'app'): void {
+  const entry: LogEntry = { ts: Date.now(), level, scope, message };
   buffer = appendLog(buffer, entry);
   for (const cb of listeners) cb(entry);
 }
@@ -35,11 +37,13 @@ export function onLog(cb: (entry: LogEntry) => void): () => void {
 
 export function initLogListener(): void {
   try {
-    listen<{ level?: string; message?: string }>('comfy://log', (e) => {
+    listen<{ scope?: string; level?: string; message?: string }>('comfy://log', (e) => {
+      const scope =
+        e.payload?.scope === 'install' || e.payload?.scope === 'exec' ? e.payload.scope : 'app';
       const level =
         e.payload?.level === 'warn' || e.payload?.level === 'err' ? e.payload.level : 'info';
       const message = e.payload?.message ?? '';
-      if (message) pushLog(level, message);
+      if (message) pushLog(level, message, scope);
     }).catch(() => {});
   } catch {
     // browser preview

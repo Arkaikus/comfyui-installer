@@ -24,3 +24,5 @@ export interface Settings {
   installDir: string;
   openrouterApiKey: string;
 }
+
+export type LogScope = 'app' | 'install' | 'exec';

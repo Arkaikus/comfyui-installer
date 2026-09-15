@@ -16,6 +16,7 @@
   --color-foreground: var(--foreground);
   --color-background: var(--background);
   --color-warning: var(--warning);
+  --color-success: var(--success);
 }
 
 :root {
@@ -29,6 +30,7 @@
   --muted-foreground: #8a99a3;
   --destructive: #e5534b;
   --warning: #e3a03a;
+  --success: #3fb97f;
   --border: #212b33;
   --input: #2a3740;
   --ring: #2ea8a0;

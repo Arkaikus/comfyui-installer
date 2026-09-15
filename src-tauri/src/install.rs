@@ -29,6 +29,20 @@ const NODES: &[(&str, &str)] = &[
         "https://github.com/Comfy-Org/ComfyUI-Manager.git",
     ),
 ];
+// Node dirs known to break startup (map None classes into NODE_CLASS_MAPPINGS,
+// crashing server.py node_info). Pruned whenever the tree is touched.
+const BROKEN_NODES: &[&str] = &["ComfyUI-OpenRouterImage"];
+
+fn prune_broken_nodes(app: &AppHandle, dir: &Path) {
+    let nodes = dir.join("custom_nodes");
+    for name in BROKEN_NODES {
+        let dest = nodes.join(name);
+        if dest.exists() {
+            log::emit(app, "install", "warn", format!("removing broken node {name}"));
+            let _ = std::fs::remove_dir_all(&dest);
+        }
+    }
+}
 
 pub async fn run(app: &AppHandle, req: InstallRequest) -> Result<SavedState, Error> {
     let dir = PathBuf::from(req.install_dir.trim());
@@ -48,8 +62,10 @@ pub async fn run(app: &AppHandle, req: InstallRequest) -> Result<SavedState, Err
     };
     persist::save(&saved)?;
 
+    prune_broken_nodes(app, &dir);
+
     if req.mode == "use" && persist::is_ready(&dir) {
-        log::emit(app, "info", "using existing install");
+        log::emit(app, "install", "info", "using existing install");
         write_launchers(&dir, &saved)?;
         return Ok(saved);
     }
@@ -57,7 +73,7 @@ pub async fn run(app: &AppHandle, req: InstallRequest) -> Result<SavedState, Err
     ensure_tools(app).await?;
 
     if req.mode == "wipe" && dir.exists() {
-        log::emit(app, "warn", format!("wiping {}", dir.display()));
+        log::emit(app, "install", "warn", format!("wiping {}", dir.display()));
         std::fs::remove_dir_all(&dir)?;
     }
 
@@ -65,7 +81,7 @@ pub async fn run(app: &AppHandle, req: InstallRequest) -> Result<SavedState, Err
         if let Some(parent) = dir.parent() {
             std::fs::create_dir_all(parent)?;
         }
-        log::emit(app, "info", "cloning ComfyUI");
+        log::emit(app, "install", "info", "cloning ComfyUI");
         run_cmd(
             app,
             "git",
@@ -80,7 +96,7 @@ pub async fn run(app: &AppHandle, req: InstallRequest) -> Result<SavedState, Err
         )
         .await?;
     } else if req.mode == "repair" {
-        log::emit(app, "info", "git pull");
+        log::emit(app, "install", "info", "git pull");
         run_cmd(app, "git", &["-C", &saved.install_dir, "pull", "--ff-only"], None).await?;
     }
 
@@ -89,7 +105,7 @@ pub async fn run(app: &AppHandle, req: InstallRequest) -> Result<SavedState, Err
     let py = persist::python_bin(&dir);
     let py_s = py.to_str().ok_or_else(|| Error::msg("python path"))?;
 
-    log::emit(app, "info", "creating Python 3.11 venv");
+    log::emit(app, "install", "info", "creating Python 3.11 venv");
     run_cmd(
         app,
         uv_s,
@@ -107,12 +123,12 @@ pub async fn run(app: &AppHandle, req: InstallRequest) -> Result<SavedState, Err
         .unwrap_or_default();
     let (maj, min) = cuda::parse_cuda_version(&smi).unwrap_or((13, 0));
     let index = cuda::torch_index_url(maj, min, req.cpu);
-    log::emit(app, "info", format!("PyTorch index {index}"));
+    log::emit(app, "install", "info", format!("PyTorch index {index}"));
     install_torch(app, uv_s, py_s, index, &dir).await?;
 
     let reqs = dir.join("requirements.txt");
     if reqs.is_file() {
-        log::emit(app, "info", "installing ComfyUI requirements");
+        log::emit(app, "install", "info", "installing ComfyUI requirements");
         let reqs_s = reqs.to_str().unwrap();
         run_cmd(
             app,
@@ -130,7 +146,7 @@ pub async fn run(app: &AppHandle, req: InstallRequest) -> Result<SavedState, Err
         let dest = nodes_dir.join(name);
         if dest.exists() {
             if req.mode == "repair" {
-                log::emit(app, "info", format!("updating {name}"));
+                log::emit(app, "install", "info", format!("updating {name}"));
                 run_cmd(
                     app,
                     "git",
@@ -140,7 +156,7 @@ pub async fn run(app: &AppHandle, req: InstallRequest) -> Result<SavedState, Err
                 .await?;
             }
         } else {
-            log::emit(app, "info", format!("cloning {name}"));
+            log::emit(app, "install", "info", format!("cloning {name}"));
             run_cmd(
                 app,
                 "git",
@@ -151,7 +167,7 @@ pub async fn run(app: &AppHandle, req: InstallRequest) -> Result<SavedState, Err
         }
         let node_req = dest.join("requirements.txt");
         if node_req.is_file() {
-            log::emit(app, "info", format!("pip {name}"));
+            log::emit(app, "install", "info", format!("pip {name}"));
             run_cmd(
                 app,
                 uv_s,
@@ -170,9 +186,9 @@ pub async fn run(app: &AppHandle, req: InstallRequest) -> Result<SavedState, Err
     }
 
     write_launchers(&dir, &saved)?;
-    log::emit(app, "info", "smoke import");
+    log::emit(app, "install", "info", "smoke import");
     run_cmd(app, py_s, &["-c", "import comfy.utils"], Some(&dir)).await?;
-    log::emit(app, "info", "install complete");
+    log::emit(app, "install", "info", "install complete");
     Ok(saved)
 }
 
@@ -238,7 +254,7 @@ async fn ensure_tools(app: &AppHandle) -> Result<(), Error> {
     if pkgs.is_empty() {
         return Ok(());
     }
-    log::emit(app, "info", format!("installing {}", pkgs.join(" ")));
+    log::emit(app, "install", "info", format!("installing {}", pkgs.join(" ")));
     let mut args = vec!["/usr/bin/pacman", "-S", "--noconfirm", "--needed"];
     args.extend(pkgs);
     let status = Command::new("pkexec")
@@ -299,7 +315,7 @@ where
     let mut lines = BufReader::new(pipe).lines();
     while let Ok(Some(line)) = lines.next_line().await {
         if !line.is_empty() {
-            log::emit(&app, level, line);
+            log::emit(&app, "install", level, line);
         }
     }
 }
