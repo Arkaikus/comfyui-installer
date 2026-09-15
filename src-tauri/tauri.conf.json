@@ -27,7 +27,7 @@
   "bundle": {
     "active": true,
     "targets": ["appimage"],
-    "category": "Graphics",
+    "category": "Graphics and Design",
     "shortDescription": "Install and run ComfyUI on Arch",
     "longDescription": "Arch/CachyOS launcher that installs ComfyUI and starts it without a terminal.",
     "icon": [
