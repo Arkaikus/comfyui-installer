@@ -28,14 +28,6 @@ const NODES: &[(&str, &str)] = &[
         "ComfyUI-Manager",
         "https://github.com/Comfy-Org/ComfyUI-Manager.git",
     ),
-    (
-        "ComfyUI-OpenRouterImage",
-        "https://github.com/zuojianghua/ComfyUI-OpenRouterImage.git",
-    ),
-    (
-        "Better-Gemini",
-        "https://github.com/Better-Gemini/Better-Gemini.git",
-    ),
 ];
 
 pub async fn run(app: &AppHandle, req: InstallRequest) -> Result<SavedState, Error> {
