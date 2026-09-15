@@ -12,29 +12,28 @@ permissions:
 jobs:
   release:
     if: ${{ !contains(github.event.head_commit.message || '', '[skip ci]') }}
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-latest
+    container: archlinux:latest
     steps:
       - uses: actions/checkout@v4
 
       - name: Install system build deps
         run: |
-          set -euo pipefail
-          sudo apt-get update -qq
-          sudo apt-get install -y --no-install-recommends \
+          pacman -Sy --noconfirm
+          pacman -S --noconfirm \
+            base-devel \
             ca-certificates \
+            curl \
             file \
-            libayatana-appindicator3-dev \
-            libgtk-3-dev \
-            librsvg2-dev \
-            libwebkit2gtk-4.1-dev \
-            patchelf \
-            wget
-
-      - uses: dtolnay/rust-toolchain@stable
-
-      - uses: swatinem/rust-cache@v2
-        with:
-          workspaces: src-tauri
+            git \
+            libayatana-appindicator \
+            librsvg \
+            pkg-config \
+            rust \
+            squashfs-tools \
+            wget \
+            webkit2gtk-4.1
+            xdg-utils
 
       - uses: oven-sh/setup-bun@v2
         with:
@@ -51,7 +50,28 @@ jobs:
           cargo test --manifest-path src-tauri/Cargo.toml
 
       - name: Build AppImage
+        env:
+          APPIMAGE_EXTRACT_AND_RUN: "1"
         run: bunx tauri build --bundles appimage
+
+      - name: Ensure AppImage exists (fallback)
+        run: |
+          set -euo pipefail
+          if ls src-tauri/target/release/bundle/appimage/*.AppImage >/dev/null 2>&1; then
+            echo "linuxdeploy produced AppImage"
+            exit 0
+          fi
+          echo "linuxdeploy did not produce AppImage; building from AppDir"
+          APPDIR="src-tauri/target/release/bundle/appimage/Unofficial ComfyUI Launcher.AppDir"
+          cp "$APPDIR/usr/share/icons/hicolor/512x512/apps/comfyui-installer.png" "$APPDIR/comfyui-installer.png"
+          curl -fsSL -o /tmp/ait.AppImage https://github.com/AppImage/appimagetool/releases/download/continuous/appimagetool-x86_64.AppImage
+          chmod +x /tmp/ait.AppImage
+          (cd /tmp && ./ait.AppImage --appimage-extract)
+          test -x /tmp/squashfs-root/usr/bin/appimagetool || { echo "appimagetool extract failed"; exit 1; }
+          VERSION=$(grep '^version' src-tauri/Cargo.toml | head -1 | cut -d'"' -f2)
+          OUT="src-tauri/target/release/bundle/appimage/Unofficial.ComfyUI.Launcher_${VERSION}_amd64.AppImage"
+          /tmp/squashfs-root/usr/bin/appimagetool "$APPDIR" "$OUT"
+          ls -la src-tauri/target/release/bundle/appimage/*.AppImage
 
       - name: Upload AppImage
         uses: actions/upload-artifact@v4
