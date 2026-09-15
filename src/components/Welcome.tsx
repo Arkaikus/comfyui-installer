@@ -60,13 +60,9 @@ export function Welcome({
     <div className="flex h-full flex-col" style={{ background: INK, color: WHITE }}>
       <div className="flex min-h-0 flex-1 flex-col items-center justify-center gap-8 p-8">
         <div className="flex items-center justify-center gap-2" style={{ color: WHITE }}>
-          <span className="text-xl font-bold italic tracking-tight">
-            Unofficial
-          </span>
+          <span className="text-xl font-bold italic tracking-tight">Unofficial</span>
           <ComfyWordmark className="h-8 w-auto" />
-          <span className="text-xl font-bold italic tracking-tight">
-            launcher
-          </span>
+          <span className="text-xl font-bold italic tracking-tight">launcher</span>
         </div>
 
         <div className="flex flex-col items-center gap-1">
@@ -139,8 +135,8 @@ export function Welcome({
         className="border-t px-5 py-2 text-center text-[10px] leading-relaxed"
         style={{ borderColor: LINE, color: GRAY }}
       >
-        Independent launcher. Not affiliated with, endorsed by, or sponsored by Comfy Org.
-        ComfyUI is a trademark of Comfy Org.
+        Independent launcher. Not affiliated with, endorsed by, or sponsored by Comfy Org. ComfyUI
+        is a trademark of Comfy Org.
       </footer>
     </div>
   );

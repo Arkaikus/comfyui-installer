@@ -34,10 +34,7 @@ export function Stepper({ steps, current, complete }: StepperProps) {
                 {done ? <Check className="size-3.5" strokeWidth={3} /> : i + 1}
               </div>
               {!last ? (
-                <div
-                  className="mt-1 w-px flex-1"
-                  style={{ background: done ? YELLOW : LINE }}
-                />
+                <div className="mt-1 w-px flex-1" style={{ background: done ? YELLOW : LINE }} />
               ) : null}
             </div>
             <div className="pb-4 pt-0.5">

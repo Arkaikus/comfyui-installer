@@ -10,13 +10,13 @@ import {
   startComfy,
   stopComfy,
 } from '@/lib/api';
-import { initLogListener, pushLog } from '@/lib/log';
 import {
+  type InstallPhase,
   initInstallPhaseListener,
   onInstallPhase,
   resetInstallPhase,
-  type InstallPhase,
 } from '@/lib/installPhase';
+import { initLogListener, pushLog } from '@/lib/log';
 import type { Status } from '@/types';
 
 initLogListener();

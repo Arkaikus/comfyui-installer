@@ -1,4 +1,4 @@
-import type { SVGProps } from "react";
+import type { SVGProps } from 'react';
 
 export function ComfyWordmark(props: SVGProps<SVGSVGElement>) {
   return (
