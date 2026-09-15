@@ -43,6 +43,7 @@ pub async fn start(app: &AppHandle, runtime: &Runtime, saved: &SavedState) -> Re
         .arg("--port")
         .arg(saved.port.to_string())
         .arg("--disable-auto-launch")
+        .arg("--enable-cors-header")
         .current_dir(dir)
         .env("PYTHONUNBUFFERED", "1")
         .stdout(Stdio::piped())

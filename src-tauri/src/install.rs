@@ -222,7 +222,7 @@ fn write_launchers(dir: &Path, saved: &SavedState) -> Result<(), Error> {
     persist::write_env_file(dir, &saved.openrouter_api_key)?;
     let script = probe::launch_script(dir);
     let body = format!(
-        "#!/bin/sh\nDIR=\"{dir}\"\nset -a\n[ -f \"$DIR/.env\" ] && . \"$DIR/.env\"\nset +a\nexec \"$DIR/.venv/bin/python\" \"$DIR/main.py\" --listen 127.0.0.1 --port {port} --disable-auto-launch\n",
+        "#!/bin/sh\nDIR=\"{dir}\"\nset -a\n[ -f \"$DIR/.env\" ] && . \"$DIR/.env\"\nset +a\nexec \"$DIR/.venv/bin/python\" \"$DIR/main.py\" --listen 127.0.0.1 --port {port} --disable-auto-launch --enable-cors-header\n",
         dir = dir.display(),
         port = saved.port
     );

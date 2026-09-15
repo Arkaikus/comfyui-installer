@@ -1,4 +1,4 @@
-import { Loader2, Play, RotateCcw, Sparkles } from 'lucide-react';
+import { ExternalLink, Loader2, Play, RotateCcw, Sparkles } from 'lucide-react';
 import comfyLogo from '@/assets/comfy-logo.svg';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
@@ -96,8 +96,12 @@ export function Welcome({ status, busy, onInstall, onRepair, onStart }: WelcomeP
               Repair
             </Button>
             <Button disabled={!canStart} onClick={() => void onStart()}>
-              <Play className="size-3.5 fill-current" />
-              Start
+              {status.running ? (
+                <ExternalLink className="size-3.5" />
+              ) : (
+                <Play className="size-3.5 fill-current" />
+              )}
+              {status.running ? 'Open' : 'Start'}
             </Button>
           </div>
         </div>

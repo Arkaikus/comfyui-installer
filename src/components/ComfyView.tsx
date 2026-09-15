@@ -1,4 +1,4 @@
-import { ArrowLeft, ChevronDown, GripHorizontal, RefreshCw, Settings } from 'lucide-react';
+import { ArrowLeft, ChevronDown, GripHorizontal, RefreshCw, Settings, Square } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { LogPanel } from '@/components/LogPanel';
 import type { LogScope, Status } from '@/types';
@@ -7,6 +7,7 @@ interface ComfyViewProps {
   status: Status;
   onBack: () => void;
   onOpenSettings: () => void;
+  onStop: () => void;
 }
 
 const SCOPE_TABS: { id: LogScope | 'all'; label: string }[] = [
@@ -16,7 +17,7 @@ const SCOPE_TABS: { id: LogScope | 'all'; label: string }[] = [
   { id: 'exec', label: 'Exec' },
 ];
 
-export function ComfyView({ status, onBack, onOpenSettings }: ComfyViewProps) {
+export function ComfyView({ status, onBack, onOpenSettings, onStop }: ComfyViewProps) {
   const [frameKey, setFrameKey] = useState(0);
   const [scope, setScope] = useState<LogScope | 'all'>('all');
   const [logOpen, setLogOpen] = useState(false);
@@ -53,6 +54,13 @@ export function ComfyView({ status, onBack, onOpenSettings }: ComfyViewProps) {
           title="Reload ComfyUI"
         >
           <RefreshCw className="size-4" />
+        </button>
+        <button
+          className="flex size-8 items-center justify-center rounded-lg text-destructive hover:bg-muted"
+          onClick={onStop}
+          title="Stop ComfyUI"
+        >
+          <Square className="size-4" />
         </button>
       </div>
 

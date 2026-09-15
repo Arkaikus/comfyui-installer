@@ -63,6 +63,10 @@ export function App() {
           status={status}
           onBack={() => setView('welcome')}
           onOpenSettings={() => setSettingsOpen(true)}
+          onStop={async () => {
+            await wrap(() => stopComfy());
+            setView('welcome');
+          }}
         />
         {settingsOpen ? (
           <SettingsOverlay
@@ -112,12 +116,10 @@ export function App() {
         }
         onStart={async () => {
           try {
-            if (status.running) {
-              await wrap(() => stopComfy());
-            } else {
+            if (!status.running) {
               await wrap(() => startComfy());
-              setView('comfy');
             }
+            setView('comfy');
           } catch {
             // wrap surfaced the error
           }
