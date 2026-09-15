@@ -9,6 +9,7 @@
     "preview": "vite preview",
     "tauri": "tauri",
     "tauri:dev": "tauri dev",
+    "tauri:dev:wdio": "tauri dev --features webdriver",
     "tauri:build": "tauri build --bundles appimage",
     "typecheck": "tsc --noEmit",
     "lint": "biome check .",
