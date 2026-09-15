@@ -32,7 +32,7 @@ jobs:
             rust \
             squashfs-tools \
             wget \
-            webkit2gtk-4.1
+            webkit2gtk-4.1 \
             xdg-utils
 
       - uses: oven-sh/setup-bun@v2
