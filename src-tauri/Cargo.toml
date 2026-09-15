@@ -1,6 +1,6 @@
 [package]
 name = "comfyui-installer"
-version = "0.1.6"
+version = "0.1.7"
 description = "Arch/CachyOS ComfyUI launcher"
 authors = ["Arkaikus"]
 edition = "2021"
