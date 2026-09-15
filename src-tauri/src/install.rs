@@ -198,7 +198,28 @@ pub async fn run(app: &AppHandle, req: InstallRequest) -> Result<SavedState, Err
     write_launchers(&dir, &saved)?;
     phase(app, 5);
     log::emit(app, "install", "info", "smoke import");
-    run_cmd(app, py_s, &["-c", "import comfy.utils"], Some(&dir)).await?;
+    let mut last_err: Option<Error> = None;
+    for attempt in 0..3 {
+        match run_cmd(app, py_s, &["-c", "import comfy.utils"], Some(&dir)).await {
+            Ok(()) => {
+                last_err = None;
+                break;
+            }
+            Err(e) => {
+                last_err = Some(e);
+                log::emit(
+                    app,
+                    "install",
+                    "warn",
+                    format!("smoke import failed (attempt {})", attempt + 1),
+                );
+                tokio::time::sleep(std::time::Duration::from_secs(2)).await;
+            }
+        }
+    }
+    if let Some(e) = last_err {
+        return Err(e);
+    }
     log::emit(app, "install", "info", "install complete");
     Ok(saved)
 }
@@ -299,8 +320,10 @@ async fn run_cmd(
     let stderr = child.stderr.take();
     let app_out = app.clone();
     let app_err = app.clone();
-    let t1 = tokio::spawn(async move { drain(app_out, stdout, "info").await });
-    let t2 = tokio::spawn(async move { drain(app_err, stderr, "warn").await });
+    let tail = std::sync::Arc::new(std::sync::Mutex::new(std::collections::VecDeque::new()));
+    let t1 = tokio::spawn(async move { drain(app_out, stdout, "info", None).await });
+    let tail2 = tail.clone();
+    let t2 = tokio::spawn(async move { drain(app_err, stderr, "warn", Some(tail2)).await });
     let status = child
         .wait()
         .await
@@ -308,16 +331,24 @@ async fn run_cmd(
     let _ = t1.await;
     let _ = t2.await;
     if !status.success() {
+        let detail = tail
+            .lock()
+            .map(|q| q.iter().cloned().collect::<Vec<_>>().join("\n"))
+            .unwrap_or_default();
         return Err(Error::msg(format!(
-            "{program} {} failed ({status})",
+            "{program} {} failed ({status})\n{detail}",
             args.join(" ")
         )));
     }
     Ok(())
 }
 
-async fn drain<T>(app: AppHandle, pipe: Option<T>, level: &'static str)
-where
+async fn drain<T>(
+    app: AppHandle,
+    pipe: Option<T>,
+    level: &'static str,
+    tail: Option<std::sync::Arc<std::sync::Mutex<std::collections::VecDeque<String>>>>,
+) where
     T: tokio::io::AsyncRead + Unpin,
 {
     let Some(pipe) = pipe else {
@@ -326,7 +357,15 @@ where
     let mut lines = BufReader::new(pipe).lines();
     while let Ok(Some(line)) = lines.next_line().await {
         if !line.is_empty() {
-            log::emit(&app, "install", level, line);
+            log::emit(&app, "install", level, line.clone());
+            if let Some(tail) = &tail {
+                if let Ok(mut q) = tail.lock() {
+                    q.push_back(line);
+                    while q.len() > 12 {
+                        q.pop_front();
+                    }
+                }
+            }
         }
     }
 }

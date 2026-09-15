@@ -98,13 +98,20 @@ pub fn is_ready(install_dir: &Path) -> bool {
 }
 
 pub fn smoke_ok(install_dir: &Path) -> bool {
-    std::process::Command::new(python_bin(install_dir))
-        .arg("-c")
-        .arg("import comfy.utils")
-        .current_dir(install_dir)
-        .status()
-        .map(|s| s.success())
-        .unwrap_or(false)
+    for _ in 0..3 {
+        let ok = std::process::Command::new(python_bin(install_dir))
+            .arg("-c")
+            .arg("import comfy.utils")
+            .current_dir(install_dir)
+            .status()
+            .map(|s| s.success())
+            .unwrap_or(false);
+        if ok {
+            return true;
+        }
+        std::thread::sleep(std::time::Duration::from_secs(2));
+    }
+    false
 }
 
 pub fn exists_tree(install_dir: &Path) -> bool {

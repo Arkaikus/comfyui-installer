@@ -67,6 +67,11 @@ export function App() {
       const msg = String(err);
       setError(msg);
       pushLog('err', msg);
+      try {
+        await refresh();
+      } catch {
+        // keep the surfaced error
+      }
     } finally {
       setBusy(false);
     }
