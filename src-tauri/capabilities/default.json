@@ -1,0 +1,7 @@
+{
+  "$schema": "../gen/schemas/desktop-schema.json",
+  "identifier": "default",
+  "description": "ComfyUI launcher",
+  "windows": ["main"],
+  "permissions": ["core:default", "core:event:default", "opener:allow-open-url"]
+}

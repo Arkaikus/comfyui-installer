@@ -1,0 +1,9 @@
+node_modules/
+dist/
+coverage/
+target/
+src-tauri/gen/
+.DS_Store
+*.log
+.vscode/
+.idea/
