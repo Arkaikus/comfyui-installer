@@ -113,27 +113,10 @@ pub async fn run(app: &AppHandle, req: InstallRequest) -> Result<SavedState, Err
         .filter(|o| o.status.success())
         .map(|o| String::from_utf8_lossy(&o.stdout).into_owned())
         .unwrap_or_default();
-    let (maj, min) = cuda::parse_cuda_version(&smi).unwrap_or((12, 1));
+    let (maj, min) = cuda::parse_cuda_version(&smi).unwrap_or((13, 0));
     let index = cuda::torch_index_url(maj, min, req.cpu);
     log::emit(app, "info", format!("PyTorch index {index}"));
-
-    run_cmd(
-        app,
-        uv_s,
-        &[
-            "pip",
-            "install",
-            "--python",
-            py_s,
-            "torch",
-            "torchvision",
-            "torchaudio",
-            "--index-url",
-            index,
-        ],
-        Some(&dir),
-    )
-    .await?;
+    install_torch(app, uv_s, py_s, index, &dir).await?;
 
     let reqs = dir.join("requirements.txt");
     if reqs.is_file() {
@@ -146,23 +129,7 @@ pub async fn run(app: &AppHandle, req: InstallRequest) -> Result<SavedState, Err
             Some(&dir),
         )
         .await?;
-        run_cmd(
-            app,
-            uv_s,
-            &[
-                "pip",
-                "install",
-                "--python",
-                py_s,
-                "torch",
-                "torchvision",
-                "torchaudio",
-                "--index-url",
-                index,
-            ],
-            Some(&dir),
-        )
-        .await?;
+        install_torch(app, uv_s, py_s, index, &dir).await?;
     }
 
     let nodes_dir = dir.join("custom_nodes");
@@ -211,8 +178,36 @@ pub async fn run(app: &AppHandle, req: InstallRequest) -> Result<SavedState, Err
     }
 
     write_launchers(&dir, &saved)?;
+    log::emit(app, "info", "smoke import");
+    run_cmd(app, py_s, &["-c", "import comfy.utils"], Some(&dir)).await?;
     log::emit(app, "info", "install complete");
     Ok(saved)
+}
+
+async fn install_torch(
+    app: &AppHandle,
+    uv: &str,
+    py: &str,
+    index: &str,
+    dir: &Path,
+) -> Result<(), Error> {
+    run_cmd(
+        app,
+        uv,
+        &[
+            "pip",
+            "install",
+            "--python",
+            py,
+            "torch>=2.7",
+            "torchvision",
+            "torchaudio",
+            "--index-url",
+            index,
+        ],
+        Some(dir),
+    )
+    .await
 }
 
 fn write_launchers(dir: &Path, saved: &SavedState) -> Result<(), Error> {

@@ -94,7 +94,17 @@ pub fn main_py(install_dir: &Path) -> PathBuf {
 }
 
 pub fn is_ready(install_dir: &Path) -> bool {
-    python_bin(install_dir).is_file() && main_py(install_dir).is_file()
+    python_bin(install_dir).is_file() && main_py(install_dir).is_file() && smoke_ok(install_dir)
+}
+
+pub fn smoke_ok(install_dir: &Path) -> bool {
+    std::process::Command::new(python_bin(install_dir))
+        .arg("-c")
+        .arg("import comfy.utils")
+        .current_dir(install_dir)
+        .status()
+        .map(|s| s.success())
+        .unwrap_or(false)
 }
 
 pub fn exists_tree(install_dir: &Path) -> bool {
