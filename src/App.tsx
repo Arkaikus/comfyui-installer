@@ -11,9 +11,16 @@ import {
   stopComfy,
 } from '@/lib/api';
 import { initLogListener, pushLog } from '@/lib/log';
+import {
+  initInstallPhaseListener,
+  onInstallPhase,
+  resetInstallPhase,
+  type InstallPhase,
+} from '@/lib/installPhase';
 import type { Status } from '@/types';
 
 initLogListener();
+initInstallPhaseListener();
 
 export function App() {
   const [status, setStatus] = useState<Status | null>(null);
@@ -21,6 +28,8 @@ export function App() {
   const [error, setError] = useState<string | null>(null);
   const [view, setView] = useState<'welcome' | 'comfy'>('welcome');
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [installing, setInstalling] = useState(false);
+  const [phase, setPhase] = useState<InstallPhase | null>(null);
 
   const refresh = useCallback(async () => {
     const next = await fetchStatus();
@@ -31,6 +40,8 @@ export function App() {
   useEffect(() => {
     refresh().catch((err) => setError(String(err)));
   }, [refresh]);
+
+  useEffect(() => onInstallPhase((p) => setPhase(p)), []);
 
   const wrap = async (fn: () => Promise<Status | undefined>, opts?: { silent?: boolean }) => {
     setBusy(true);
@@ -94,26 +105,32 @@ export function App() {
       <Welcome
         status={status}
         busy={busy}
-        onInstall={() =>
-          wrap(() =>
+        installing={installing}
+        phase={phase}
+        onInstall={() => {
+          setInstalling(true);
+          resetInstallPhase();
+          void wrap(() =>
             installComfy({
               installDir: status.installDir,
               mode: status.existing ? 'repair' : 'fresh',
               cpu: false,
               openrouterApiKey: '',
             }),
-          )
-        }
-        onRepair={() =>
-          wrap(() =>
+          ).finally(() => setInstalling(false));
+        }}
+        onRepair={() => {
+          setInstalling(true);
+          resetInstallPhase();
+          void wrap(() =>
             installComfy({
               installDir: status.installDir,
               mode: 'repair',
               cpu: false,
               openrouterApiKey: '',
             }),
-          )
-        }
+          ).finally(() => setInstalling(false));
+        }}
         onStart={async () => {
           try {
             if (!status.running) {

@@ -29,6 +29,11 @@ const NODES: &[(&str, &str)] = &[
         "https://github.com/Comfy-Org/ComfyUI-Manager.git",
     ),
 ];
+const PHASES: &[&str] = &["env", "clone", "venv", "deps", "nodes", "launch"];
+
+fn phase(app: &AppHandle, index: usize) {
+    crate::log::phase(app, PHASES[index], index, PHASES.len());
+}
 // Node dirs known to break startup (map None classes into NODE_CLASS_MAPPINGS,
 // crashing server.py node_info). Pruned whenever the tree is touched.
 const BROKEN_NODES: &[&str] = &["ComfyUI-OpenRouterImage"];
@@ -70,6 +75,7 @@ pub async fn run(app: &AppHandle, req: InstallRequest) -> Result<SavedState, Err
         return Ok(saved);
     }
 
+    phase(app, 0);
     ensure_tools(app).await?;
 
     if req.mode == "wipe" && dir.exists() {
@@ -77,6 +83,7 @@ pub async fn run(app: &AppHandle, req: InstallRequest) -> Result<SavedState, Err
         std::fs::remove_dir_all(&dir)?;
     }
 
+    phase(app, 1);
     if !persist::exists_tree(&dir) {
         if let Some(parent) = dir.parent() {
             std::fs::create_dir_all(parent)?;
@@ -105,6 +112,7 @@ pub async fn run(app: &AppHandle, req: InstallRequest) -> Result<SavedState, Err
     let py = persist::python_bin(&dir);
     let py_s = py.to_str().ok_or_else(|| Error::msg("python path"))?;
 
+    phase(app, 2);
     log::emit(app, "install", "info", "creating Python 3.11 venv");
     run_cmd(
         app,
@@ -124,6 +132,7 @@ pub async fn run(app: &AppHandle, req: InstallRequest) -> Result<SavedState, Err
     let (maj, min) = cuda::parse_cuda_version(&smi).unwrap_or((13, 0));
     let index = cuda::torch_index_url(maj, min, req.cpu);
     log::emit(app, "install", "info", format!("PyTorch index {index}"));
+    phase(app, 3);
     install_torch(app, uv_s, py_s, index, &dir).await?;
 
     let reqs = dir.join("requirements.txt");
@@ -142,6 +151,7 @@ pub async fn run(app: &AppHandle, req: InstallRequest) -> Result<SavedState, Err
 
     let nodes_dir = dir.join("custom_nodes");
     std::fs::create_dir_all(&nodes_dir)?;
+    phase(app, 4);
     for (name, url) in NODES {
         let dest = nodes_dir.join(name);
         if dest.exists() {
@@ -186,6 +196,7 @@ pub async fn run(app: &AppHandle, req: InstallRequest) -> Result<SavedState, Err
     }
 
     write_launchers(&dir, &saved)?;
+    phase(app, 5);
     log::emit(app, "install", "info", "smoke import");
     run_cmd(app, py_s, &["-c", "import comfy.utils"], Some(&dir)).await?;
     log::emit(app, "install", "info", "install complete");
