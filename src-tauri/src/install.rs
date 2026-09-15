@@ -289,11 +289,10 @@ async fn ensure_tools(app: &AppHandle) -> Result<(), Error> {
     log::emit(app, "install", "info", format!("installing {}", pkgs.join(" ")));
     let mut args = vec!["/usr/bin/pacman", "-S", "--noconfirm", "--needed"];
     args.extend(pkgs);
-    let status = Command::new("pkexec")
-        .args(&args)
-        .status()
-        .await
-        .map_err(|e| Error::msg(format!("pkexec: {e}")))?;
+    let mut cmd = Command::new("pkexec");
+    cmd.args(&args);
+    crate::env::sanitize_tokio(&mut cmd);
+    let status = cmd.status().await.map_err(|e| Error::msg(format!("pkexec: {e}")))?;
     if !status.success() {
         return Err(Error::msg(
             "could not install git/uv via pacman (pkexec cancelled or failed)",
@@ -310,6 +309,7 @@ async fn run_cmd(
 ) -> Result<(), Error> {
     let mut cmd = Command::new(program);
     cmd.args(args).stdout(Stdio::piped()).stderr(Stdio::piped());
+    crate::env::sanitize_tokio(&mut cmd);
     if let Some(dir) = cwd {
         cmd.current_dir(dir);
     }

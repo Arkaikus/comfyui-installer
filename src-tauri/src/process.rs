@@ -49,6 +49,7 @@ pub async fn start(app: &AppHandle, runtime: &Runtime, saved: &SavedState) -> Re
         .stdout(Stdio::piped())
         .stderr(Stdio::piped())
         .kill_on_drop(false);
+    crate::env::sanitize_tokio(&mut cmd);
     if !saved.openrouter_api_key.is_empty() {
         cmd.env("OPENROUTER_API_KEY", &saved.openrouter_api_key);
     }
@@ -92,16 +93,18 @@ pub async fn stop(app: &AppHandle, runtime: &Runtime, saved: &SavedState) -> Res
         let _ = child.wait().await;
         log::emit(app, "exec", "info", "stopped");
     } else if let Some(pid) = read_pid(dir) {
-        let _ = Command::new("kill").arg("-TERM").arg(pid.to_string()).status().await;
+        let mut c = Command::new("kill");
+        c.arg("-TERM").arg(pid.to_string());
+        crate::env::sanitize_tokio(&mut c);
+        let _ = c.status().await;
         log::emit(app, "exec", "info", format!("sent SIGTERM to {pid}"));
     }
     let _ = std::fs::remove_file(dir.join("comfyui.pid"));
     if crate::probe::port_open(saved.port) {
-        let _ = Command::new("fuser")
-            .arg("-k")
-            .arg(format!("{}/tcp", saved.port))
-            .status()
-            .await;
+        let mut c = Command::new("fuser");
+        c.arg("-k").arg(format!("{}/tcp", saved.port));
+        crate::env::sanitize_tokio(&mut c);
+        let _ = c.status().await;
     }
     Ok(())
 }

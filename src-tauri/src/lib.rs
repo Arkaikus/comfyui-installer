@@ -1,4 +1,5 @@
 mod cuda;
+mod env;
 mod install;
 mod log;
 mod persist;

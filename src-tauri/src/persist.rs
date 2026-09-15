@@ -99,13 +99,12 @@ pub fn is_ready(install_dir: &Path) -> bool {
 
 pub fn smoke_ok(install_dir: &Path) -> bool {
     for _ in 0..3 {
-        let ok = std::process::Command::new(python_bin(install_dir))
-            .arg("-c")
+        let mut cmd = std::process::Command::new(python_bin(install_dir));
+        cmd.arg("-c")
             .arg("import comfy.utils")
-            .current_dir(install_dir)
-            .status()
-            .map(|s| s.success())
-            .unwrap_or(false);
+            .current_dir(install_dir);
+        crate::env::sanitize_std(&mut cmd);
+        let ok = cmd.status().map(|s| s.success()).unwrap_or(false);
         if ok {
             return true;
         }

@@ -8,13 +8,14 @@ use crate::cuda;
 use crate::persist::{self, SavedState};
 
 fn run_cmd_timeout(cmd: &str, args: &[&str], timeout: Duration) -> Option<Output> {
-    let mut child = StdCommand::new(cmd)
+    let mut child = StdCommand::new(cmd);
+    child
         .args(args)
         .stdout(Stdio::piped())
         .stderr(Stdio::null())
-        .stdin(Stdio::null())
-        .spawn()
-        .ok()?;
+        .stdin(Stdio::null());
+    crate::env::sanitize_std(&mut child);
+    let mut child = child.spawn().ok()?;
     let deadline = Instant::now() + timeout;
     loop {
         match child.try_wait() {
