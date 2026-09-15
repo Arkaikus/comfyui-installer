@@ -19,6 +19,18 @@ pub fn phase(app: &AppHandle, phase: &str, index: usize, total: usize) {
     let _ = app.emit("comfy://install-phase", payload);
 }
 
+pub fn error(app: &AppHandle, message: impl AsRef<str>) {
+    let payload = ErrorEvent {
+        message: message.as_ref().to_string(),
+    };
+    let _ = app.emit("comfy://error", payload);
+}
+
+#[derive(Clone, Serialize)]
+struct ErrorEvent {
+    message: String,
+}
+
 #[derive(Clone, Serialize)]
 struct LogEvent {
     scope: String,

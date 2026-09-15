@@ -35,6 +35,17 @@ export function onLog(cb: (entry: LogEntry) => void): () => void {
   return () => void listeners.delete(cb);
 }
 
+const errorListeners = new Set<(message: string) => void>();
+
+export function onError(cb: (message: string) => void): () => void {
+  errorListeners.add(cb);
+  return () => void errorListeners.delete(cb);
+}
+
+export function pushError(message: string): void {
+  for (const cb of errorListeners) cb(message);
+}
+
 export function initLogListener(): void {
   try {
     listen<{ scope?: string; level?: string; message?: string }>('comfy://log', (e) => {
@@ -44,6 +55,20 @@ export function initLogListener(): void {
         e.payload?.level === 'warn' || e.payload?.level === 'err' ? e.payload.level : 'info';
       const message = e.payload?.message ?? '';
       if (message) pushLog(level, message, scope);
+    }).catch(() => {});
+  } catch {
+    // browser preview
+  }
+}
+
+export function initErrorListener(): void {
+  try {
+    listen<{ message?: string }>('comfy://error', (e) => {
+      const message = e.payload?.message ?? '';
+      if (message) {
+        pushError(message);
+        pushLog('err', message);
+      }
     }).catch(() => {});
   } catch {
     // browser preview

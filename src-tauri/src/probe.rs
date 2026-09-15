@@ -1,10 +1,36 @@
 use std::path::{Path, PathBuf};
-use std::process::Command as StdCommand;
+use std::process::{Command as StdCommand, Output, Stdio};
+use std::time::{Duration, Instant};
 
 use serde::Serialize;
 
 use crate::cuda;
 use crate::persist::{self, SavedState};
+
+fn run_cmd_timeout(cmd: &str, args: &[&str], timeout: Duration) -> Option<Output> {
+    let mut child = StdCommand::new(cmd)
+        .args(args)
+        .stdout(Stdio::piped())
+        .stderr(Stdio::null())
+        .stdin(Stdio::null())
+        .spawn()
+        .ok()?;
+    let deadline = Instant::now() + timeout;
+    loop {
+        match child.try_wait() {
+            Ok(Some(_)) => return child.wait_with_output().ok(),
+            Ok(None) => {
+                if Instant::now() >= deadline {
+                    let _ = child.kill();
+                    let _ = child.wait();
+                    return None;
+                }
+                std::thread::sleep(Duration::from_millis(40));
+            }
+            Err(_) => return None,
+        }
+    }
+}
 
 #[derive(Clone, Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -78,18 +104,17 @@ fn read_distro() -> (bool, String) {
 }
 
 fn read_nvidia() -> (Option<String>, Option<String>) {
-    let name = StdCommand::new("nvidia-smi")
-        .args(["--query-gpu=name", "--format=csv,noheader"])
-        .output()
-        .ok()
-        .filter(|o| o.status.success())
-        .and_then(|o| {
-            let s = String::from_utf8_lossy(&o.stdout).trim().to_string();
-            if s.is_empty() { None } else { Some(s) }
-        });
-    let cuda = StdCommand::new("nvidia-smi")
-        .output()
-        .ok()
+    let name = run_cmd_timeout(
+        "nvidia-smi",
+        &["--query-gpu=name", "--format=csv,noheader"],
+        Duration::from_secs(3),
+    )
+    .filter(|o| o.status.success())
+    .and_then(|o| {
+        let s = String::from_utf8_lossy(&o.stdout).trim().to_string();
+        if s.is_empty() { None } else { Some(s) }
+    });
+    let cuda = run_cmd_timeout("nvidia-smi", &[], Duration::from_secs(3))
         .filter(|o| o.status.success())
         .and_then(|o| {
             let s = String::from_utf8_lossy(&o.stdout);

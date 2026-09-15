@@ -16,8 +16,8 @@ import {
   onInstallPhase,
   resetInstallPhase,
 } from '@/lib/installPhase';
-import { initLogListener, pushLog } from '@/lib/log';
-import type { Status } from '@/types';
+import { initLogListener, onError, pushLog } from '@/lib/log';
+import { DEFAULT_STATUS, type Status } from '@/types';
 
 initLogListener();
 initInstallPhaseListener();
@@ -26,10 +26,14 @@ export function App() {
   const [status, setStatus] = useState<Status | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [backendError, setBackendError] = useState<string | null>(null);
   const [view, setView] = useState<'welcome' | 'comfy'>('welcome');
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [installing, setInstalling] = useState(false);
   const [phase, setPhase] = useState<InstallPhase | null>(null);
+
+  const current = status ?? DEFAULT_STATUS;
+  const checking = status === null && !error;
 
   const refresh = useCallback(async () => {
     const next = await fetchStatus();
@@ -42,6 +46,15 @@ export function App() {
   }, [refresh]);
 
   useEffect(() => onInstallPhase((p) => setPhase(p)), []);
+
+  useEffect(
+    () =>
+      onError((msg) => {
+        setBackendError(msg);
+        setError(msg);
+      }),
+    [],
+  );
 
   const wrap = async (fn: () => Promise<Status | undefined>, opts?: { silent?: boolean }) => {
     setBusy(true);
@@ -59,19 +72,11 @@ export function App() {
     }
   };
 
-  if (!status) {
-    return (
-      <div className="flex h-full items-center justify-center text-sm text-muted-foreground">
-        {error ?? 'Loading…'}
-      </div>
-    );
-  }
-
   if (view === 'comfy') {
     return (
       <div className="relative h-full">
         <ComfyView
-          status={status}
+          status={current}
           onBack={() => setView('welcome')}
           onOpenSettings={() => setSettingsOpen(true)}
           onStop={async () => {
@@ -81,13 +86,13 @@ export function App() {
         />
         {settingsOpen ? (
           <SettingsOverlay
-            status={status}
+            status={current}
             saving={busy}
             onSaveKey={(key) =>
               wrap(
                 () =>
                   saveSettings({
-                    installDir: status.installDir,
+                    installDir: current.installDir,
                     openrouterApiKey: key,
                   }),
                 { silent: true },
@@ -103,7 +108,8 @@ export function App() {
   return (
     <div className="relative h-full">
       <Welcome
-        status={status}
+        status={current}
+        checking={checking}
         busy={busy}
         installing={installing}
         phase={phase}
@@ -112,8 +118,8 @@ export function App() {
           resetInstallPhase();
           void wrap(() =>
             installComfy({
-              installDir: status.installDir,
-              mode: status.existing ? 'repair' : 'fresh',
+              installDir: current.installDir,
+              mode: current.existing ? 'repair' : 'fresh',
               cpu: false,
               openrouterApiKey: '',
             }),
@@ -124,7 +130,7 @@ export function App() {
           resetInstallPhase();
           void wrap(() =>
             installComfy({
-              installDir: status.installDir,
+              installDir: current.installDir,
               mode: 'repair',
               cpu: false,
               openrouterApiKey: '',
@@ -133,7 +139,7 @@ export function App() {
         }}
         onStart={async () => {
           try {
-            if (!status.running) {
+            if (!current.running) {
               await wrap(() => startComfy());
             }
             setView('comfy');
@@ -142,7 +148,7 @@ export function App() {
           }
         }}
       />
-      {!busy && status.installReady && !status.running ? (
+      {!busy && current.installReady && !current.running ? (
         <button
           className="absolute right-3 bottom-3 rounded-lg border border-border bg-card/80 px-3 py-1.5 text-xs text-muted-foreground backdrop-blur hover:bg-muted"
           onClick={() => void openUi()}
@@ -150,20 +156,29 @@ export function App() {
           Open in browser
         </button>
       ) : null}
-      {error && !busy ? (
-        <p className="absolute bottom-3 left-3 max-w-[70%] truncate text-xs text-destructive">
-          {error}
-        </p>
+      {(error || backendError) && !busy ? (
+        <div className="absolute bottom-3 left-3 right-3 flex items-start gap-2 rounded-lg border border-destructive/40 bg-card/90 px-3 py-2 text-xs text-destructive backdrop-blur">
+          <span className="min-w-0 flex-1 break-words">{backendError ?? error}</span>
+          <button
+            className="shrink-0 text-muted-foreground hover:text-foreground"
+            onClick={() => {
+              setError(null);
+              setBackendError(null);
+            }}
+          >
+            ✕
+          </button>
+        </div>
       ) : null}
       {settingsOpen ? (
         <SettingsOverlay
-          status={status}
+          status={current}
           saving={busy}
           onSaveKey={(key) =>
             wrap(
               () =>
                 saveSettings({
-                  installDir: status.installDir,
+                  installDir: current.installDir,
                   openrouterApiKey: key,
                 }),
               { silent: true },

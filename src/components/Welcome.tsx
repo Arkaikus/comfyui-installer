@@ -22,6 +22,7 @@ export function dotColor(status: Status, busy: boolean): DotColor {
 
 interface WelcomeProps {
   status: Status;
+  checking?: boolean;
   busy: boolean;
   installing: boolean;
   phase: InstallPhase | null;
@@ -44,6 +45,7 @@ const DOT_LABEL: Record<DotColor, string> = {
 
 export function Welcome({
   status,
+  checking = false,
   busy,
   installing,
   phase,
@@ -66,22 +68,31 @@ export function Welcome({
         </div>
 
         <div className="flex flex-col items-center gap-1">
-          <p className="text-sm text-muted-foreground" style={{ color: GRAY }}>
-            {status.gpuName ?? 'No NVIDIA GPU'}
-            {status.cuda ? ` · CUDA ${status.cuda}` : ''}
-          </p>
-          <p className="max-w-md truncate font-mono text-xs" style={{ color: GRAY }}>
-            {status.installDir}
-          </p>
-          <p className="flex items-center gap-2 font-mono text-xs" style={{ color: GRAY }}>
-            <span className={cn('size-2 rounded-full', DOT[dot])} />
-            {DOT_LABEL[dot]}
-          </p>
-          {!status.distroOk ? (
-            <p className="text-xs font-medium text-destructive">
-              {status.distro} is not Arch/CachyOS
+          {checking ? (
+            <p className="flex items-center gap-2 text-sm" style={{ color: GRAY }}>
+              <Loader2 className="size-4 animate-spin" />
+              Checking environment…
             </p>
-          ) : null}
+          ) : (
+            <>
+              <p className="text-sm text-muted-foreground" style={{ color: GRAY }}>
+                {status.gpuName ?? 'No NVIDIA GPU'}
+                {status.cuda ? ` · CUDA ${status.cuda}` : ''}
+              </p>
+              <p className="max-w-md truncate font-mono text-xs" style={{ color: GRAY }}>
+                {status.installDir || 'No install directory selected'}
+              </p>
+              <p className="flex items-center gap-2 font-mono text-xs" style={{ color: GRAY }}>
+                <span className={cn('size-2 rounded-full', DOT[dot])} />
+                {DOT_LABEL[dot]}
+              </p>
+              {!status.distroOk ? (
+                <p className="text-xs font-medium text-destructive">
+                  {status.distro} is not Arch/CachyOS
+                </p>
+              ) : null}
+            </>
+          )}
         </div>
 
         {installing ? (
